@@ -17,8 +17,9 @@ const withOpenAIObservability = (json, email) =>
     }
     : json;
 
-const tokenCost = (pricing, model, usage) => {
-  const [input, output, audioInput = 0, audioOutput = 0] = pricing[model] ?? [0, 0, 0, 0];
+const tokenCost = (pricing, model, usage, requestedModel) => {
+  const [input, output, audioInput = 0, audioOutput = 0] = pricing[model] ?? pricing[requestedModel]
+    ?? [30, 180, 30, 180];
 
   // Check if we have detailed token breakdowns
   const hasInputDetails = usage?.prompt_tokens_details || usage?.input_token_details;
@@ -135,14 +136,16 @@ export const providers = {
         ...(body ? { body } : {}),
       };
     },
-    cost: async ({ model, usage }) => {
+    cost: async ({ model, usage, requestedModel }) => {
       if (usage?.cost != null) {
         const reportedCost = Number(usage.cost);
         if (!Number.isNaN(reportedCost)) return { cost: reportedCost };
       }
       // We can't look up https://openrouter.ai/api/v1/generation
       // It usually takes a few seconds to get updated. So we calculate the cost ourselves.
-      const { pricing } = await getOpenrouterModel(model);
+      let { pricing } = await getOpenrouterModel(model);
+      if (!pricing && requestedModel) ({ pricing } = await getOpenrouterModel(requestedModel));
+      pricing ??= { prompt: 30 / 1e6, completion: 180 / 1e6, internal_reasoning: 180 / 1e6, image: 180 / 1e6 };
       const cost = (usage?.prompt_tokens * pricing?.prompt || 0)
         + (usage?.completion_tokens * pricing?.completion || 0)
         + (usage?.completion_tokens_details?.reasoning_tokens * pricing?.internal_reasoning || 0)
@@ -185,7 +188,7 @@ export const providers = {
         ...(body ? { body } : {}),
       };
     },
-    cost: async ({ model, usage }) => ({ cost: tokenCost(openaiCost, model, usage) }),
+    cost: async ({ model, usage, requestedModel }) => ({ cost: tokenCost(openaiCost, model, usage, requestedModel) }),
     parse: (event) => {
       return { ...(event.response ?? event) };
     },
@@ -212,9 +215,8 @@ export const providers = {
         ...(json ? { body: JSON.stringify(json) } : {}),
       };
     },
-    cost: async ({ model, usage, env, path, body }) => {
-      model = model ?? path.match(/models\/([^:]+)/)?.[1];
-      if (!geminiCost[model]) return { cost: 0 };
+    cost: async ({ model, usage, requestedModel, env, path, body }) => {
+      model = geminiCost[model] ? model : requestedModel ?? path.match(/models\/([^:]+)/)?.[1];
       if (!usage && path.includes(":embedContent") && body) {
         try {
           const { content } = JSON.parse(body);

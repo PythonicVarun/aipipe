@@ -132,6 +132,7 @@ export default {
       budget: nativeKey ? null : { limit, days, usage, remaining: limit - usage },
     });
     if (error) return jsonResponse(error);
+    const requestedModel = typeof params.body == "string" ? JSON.parse(params.body).model : undefined;
 
     // For similarity provider, return the result directly
     if (provider === "similarity" && params.similarity) {
@@ -153,7 +154,7 @@ export default {
       ? async () => {} // No-op for native keys
       : async (data) => {
         const parsed = parse ? parse(data) : data;
-        const { cost } = await providers[provider].cost({ ...parsed, env, path, body: params.body });
+        const { cost } = await providers[provider].cost({ ...parsed, requestedModel, env, path, body: params.body });
         if (cost > 0) await aiPipeCost.add(email, cost);
       };
 

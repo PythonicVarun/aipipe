@@ -1,6 +1,7 @@
 // @ts-check
 import { env } from "cloudflare:test";
 import { describe, expect, test } from "vitest";
+import { providers } from "../src/providers.js";
 import {
   createTestToken,
   readUsage,
@@ -139,6 +140,45 @@ describe("OpenAI provider", () => {
       trace_id: "trace-123",
       aipipe_email: "test@example.com",
     });
+  });
+
+  test("charges requested model pricing when the OpenAI response model is unknown", async () => {
+    const token = await createTestToken();
+    await seedUsage({});
+
+    replyJson(fetchMock, {
+      origin: "https://api.openai.com",
+      path: "/v1/responses",
+      method: "POST",
+      body: {
+        model: "gpt-5-nano-2026-03-17",
+        usage: { input_tokens: 1000, output_tokens: 1000 },
+        output: [{ role: "assistant", content: [{ text: "hi" }] }],
+      },
+    });
+
+    const response = await workerFetch("/openai/v1/responses", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ model: "gpt-5-nano", input: "Hello" }),
+    });
+
+    expect(response.status).toBe(200);
+    const usage = await readUsage(token);
+    expect(usage.cost).toBeCloseTo(0.00045, 8);
+  });
+
+  test("charges expensive default pricing when no OpenAI model price is known", async () => {
+    const { cost } = await providers.openai.cost({
+      model: "unknown-response-model",
+      requestedModel: "unknown-request-model",
+      usage: { input_tokens: 1000, output_tokens: 1000 },
+    });
+
+    expect(cost).toBeCloseTo(0.21, 8);
   });
 
   test("adds user email to embeddings requests", async () => {
