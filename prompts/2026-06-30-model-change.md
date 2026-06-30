@@ -17,3 +17,5 @@ Consider multiple approaches before deciding on the best one. A developer should
 
 Is there any possibility of needing the `[0, 0, 0, 0]` fallback?
 In any case, set the cost to the pricing of an expensive frontier model, rather than zero.
+
+<!-- codex resume 019f17a5-9ddf-76f2-8ab5-9171440e798e --yolo -->
