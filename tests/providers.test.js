@@ -1,6 +1,7 @@
 // @ts-check
 import { env } from "cloudflare:test";
 import { describe, expect, test } from "vitest";
+import pricing from "../src/pricing.json";
 import { providers } from "../src/providers.js";
 import {
   createTestToken,
@@ -179,6 +180,25 @@ describe("OpenAI provider", () => {
     });
 
     expect(cost).toBeCloseTo(0.21, 8);
+  });
+
+  test.each([
+    ["gpt-5.5", [5, 30]],
+    ["gpt-5.5-2026-04-23", [5, 30]],
+    ["gpt-5.5-pro", [30, 180]],
+    ["gpt-5.5-pro-2026-04-23", [30, 180]],
+    ["gpt-5.6", [5, 30]],
+    ["gpt-5.6-sol", [5, 30]],
+    ["gpt-5.6-terra", [2, 12]],
+    ["gpt-5.6-luna", [0.2, 1.2]],
+  ])("calculates current pricing for %s", async (model, expectedPricing) => {
+    expect(pricing.openai[model]).toEqual(expectedPricing);
+    const { cost } = await providers.openai.cost({
+      model,
+      usage: { input_tokens: 1_000_000, output_tokens: 1_000_000 },
+    });
+
+    expect(cost).toBe(expectedPricing[0] + expectedPricing[1]);
   });
 
   test("adds user email to embeddings requests", async () => {
