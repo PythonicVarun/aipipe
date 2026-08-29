@@ -75,9 +75,15 @@ async function init() {
     return;
   }
 
+  const usageFetched = await showUsage($usage, token, email);
+  if (!usageFetched) {
+    // token expired or revoked
+    localStorage.removeItem("aipipe");
+    return;
+  }
+
   $result.classList.remove("d-none");
   $token.value = token;
-  await showUsage($usage, token, email);
 
   copyAction(document.body);
 }

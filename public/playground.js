@@ -6,6 +6,14 @@ if (!token) window.location = `login?redirect=${window.location.href}`;
 
 const $usage = document.querySelector("#usage");
 
+// Show usage. If the token expired, clear it before bouncing to login else login redirects straight back.
+const refreshUsage = async () => {
+  if (await showUsage($usage, token, email)) return;
+
+  localStorage.removeItem("aipipe");
+  window.location = `login?redirect=${window.location.href}`;
+};
+
 document.querySelector("#playground-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const model = document.querySelector("#model").value;
@@ -29,7 +37,7 @@ document.querySelector("#playground-form").addEventListener("submit", async (e) 
   } catch (error) {
     responseEl.textContent = `Error: ${error.message}`;
   }
-  await showUsage($usage, token, email);
+  await refreshUsage();
 });
 
-await showUsage($usage, token, email);
+await refreshUsage();

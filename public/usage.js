@@ -1,9 +1,10 @@
 import { html, render } from "https://cdn.jsdelivr.net/npm/lit-html@3/+esm";
 
 async function showUsage($usage, token, email) {
-  const { cost, limit, days, usage } = await fetch("usage", { headers: { Authorization: `Bearer ${token}` } }).then(
-    (r) => r.json(),
-  );
+  const r = await fetch("usage", { headers: { Authorization: `Bearer ${token}` } });
+  if (r.status === 401) return false; // token expired or revoked
+
+  const { cost, limit, days, usage } = await r.json();
 
   const view = html`
     <div class="card text-bg-primary shadow-lg mb-3">
@@ -36,6 +37,7 @@ async function showUsage($usage, token, email) {
     </table>
   `;
   render(view, $usage);
+  return true;
 }
 
 export { showUsage };
